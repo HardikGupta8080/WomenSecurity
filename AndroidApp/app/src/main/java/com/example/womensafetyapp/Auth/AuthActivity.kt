@@ -30,6 +30,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
@@ -39,7 +40,15 @@ import androidx.compose.ui.unit.sp
 import com.example.womensafetyapp.MainActivity
 import com.example.womensafetyapp.R
 import com.example.womensafetyapp.ui.theme.WomenSafetyAppTheme
+import dagger.hilt.android.AndroidEntryPoint
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.example.womensafetyapp.viewmodel.AuthViewModel
+import com.example.womensafetyapp.data.LoginRequest
+import com.example.womensafetyapp.data.RegisterRequest
+import android.widget.Toast
+import androidx.compose.ui.platform.LocalContext
 
+@AndroidEntryPoint
 class AuthActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -58,8 +67,29 @@ class AuthActivity : ComponentActivity() {
 }
 
 @Composable
-fun AuthScreen(onLoginSuccess: () -> Unit) {
-    var isLogin by remember { mutableStateOf(false) }
+fun AuthScreen(
+    onLoginSuccess: () -> Unit,
+    authViewModel: AuthViewModel = hiltViewModel()
+) {
+    var isLogin by remember { mutableStateOf(true) }
+    
+    val isLoading by authViewModel.isLoading.collectAsState()
+    val error by authViewModel.error.collectAsState()
+    val authSuccess by authViewModel.authSuccess.collectAsState()
+    val context = LocalContext.current
+
+    LaunchedEffect(authSuccess) {
+        if (authSuccess) {
+            if (isLogin) {
+                authViewModel.resetSuccess()
+                onLoginSuccess()
+            } else {
+                Toast.makeText(context, "Registration successful! Please login.", Toast.LENGTH_LONG).show()
+                authViewModel.resetSuccess()
+                isLogin = true // Switch to login screen
+            }
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -86,12 +116,16 @@ fun AuthScreen(onLoginSuccess: () -> Unit) {
         if (isLogin) {
             LoginForm(
                 onSwitchToSignup = { isLogin = false },
-                onLoginSuccess = onLoginSuccess
+                authViewModel = authViewModel,
+                isLoading = isLoading,
+                apiError = error
             )
         } else {
             SignUpForm(
                 onSwitchToLogin = { isLogin = true },
-                onSignupSuccess = onLoginSuccess
+                authViewModel = authViewModel,
+                isLoading = isLoading,
+                apiError = error
             )
         }
         
@@ -155,11 +189,18 @@ fun GradientHeader() {
 
 
 @Composable
-fun LoginForm(onSwitchToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
-    var email by remember { mutableStateOf("") }
+fun LoginForm(
+    onSwitchToSignup: () -> Unit,
+    authViewModel: AuthViewModel,
+    isLoading: Boolean,
+    apiError: String?
+) {
+    var username by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf("") }
+    var localError by remember { mutableStateOf("") }
+    
+    val displayError = if (localError.isNotEmpty()) localError else apiError ?: ""
 
     Card(
         modifier = Modifier
@@ -177,17 +218,17 @@ fun LoginForm(onSwitchToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
             Spacer(Modifier.height(16.dp))
             Text("Welcome Back", style = MaterialTheme.typography.titleLarge)
 
-            if (error.isNotEmpty()) {
+            if (displayError.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
-                Text(error, color = Color.Red, fontSize = 12.sp)
+                Text(displayError, color = Color.Red, fontSize = 12.sp)
             }
 
             Spacer(Modifier.height(16.dp))
             OutlinedTextField(
-                value = email,
-                onValueChange = { email = it },
-                label = { Text("Email") },
-                leadingIcon = { Icon(Icons.Default.Email, contentDescription = null) },
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("Username") },
+                leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
                 colors = OutlinedTextFieldDefaults.colors(
@@ -234,14 +275,14 @@ fun LoginForm(onSwitchToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
             ) {
                 Button(
                     onClick = {
-                        if (email.isBlank() || password.isBlank()) {
-                            error = "Please fill in all fields"
+                        if (username.isBlank() || password.isBlank()) {
+                            localError = "Please fill in all fields"
                         } else {
-                            error = ""
-                            // For UI development - simulate successful login
-                            onLoginSuccess()
+                            localError = ""
+                            authViewModel.login(LoginRequest(username = username, password = password))
                         }
                     },
+                    enabled = !isLoading,
                     modifier = Modifier
                         .fillMaxSize(),
                     colors = ButtonDefaults.buttonColors(
@@ -250,12 +291,16 @@ fun LoginForm(onSwitchToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
                     shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues()
                 ) {
-                    Text(
-                        text = "Login",
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                    } else {
+                        Text(
+                            text = "Login",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 
@@ -271,14 +316,20 @@ fun LoginForm(onSwitchToSignup: () -> Unit, onLoginSuccess: () -> Unit) {
 }
 
 @Composable
-fun SignUpForm(onSwitchToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
-    var name by remember { mutableStateOf("") }
+fun SignUpForm(
+    onSwitchToLogin: () -> Unit,
+    authViewModel: AuthViewModel,
+    isLoading: Boolean,
+    apiError: String?
+) {
+    var username by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
+    var phone by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var confirmPassword by remember { mutableStateOf("") }
     var showPassword by remember { mutableStateOf(false) }
-    var showConfirmPassword by remember { mutableStateOf(false) }
-    var error by remember { mutableStateOf("") }
+    var localError by remember { mutableStateOf("") }
+    
+    val displayError = if (localError.isNotEmpty()) localError else apiError ?: ""
 
     Card(
         modifier = Modifier
@@ -296,16 +347,16 @@ fun SignUpForm(onSwitchToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
             Spacer(Modifier.height(12.dp))
             Text("Create Account", style = MaterialTheme.typography.titleLarge)
 
-            if (error.isNotEmpty()) {
+            if (displayError.isNotEmpty()) {
                 Spacer(Modifier.height(6.dp))
-                Text(error, color = Color.Red, fontSize = 12.sp)
+                Text(displayError, color = Color.Red, fontSize = 12.sp)
             }
 
             Spacer(Modifier.height(12.dp))
             OutlinedTextField(
-                value = name,
-                onValueChange = { name = it },
-                label = { Text("Full Name") },
+                value = username,
+                onValueChange = { username = it },
+                label = { Text("Username") },
                 leadingIcon = { Icon(Icons.Default.Person, contentDescription = null) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
@@ -331,6 +382,23 @@ fun SignUpForm(onSwitchToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
 
             Spacer(Modifier.height(6.dp))
             OutlinedTextField(
+                value = phone,
+                onValueChange = { phone = it },
+                label = { Text("Phone Number") },
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Phone,
+                    imeAction = ImeAction.Next
+                ),
+                modifier = Modifier.fillMaxWidth(),
+                colors = OutlinedTextFieldDefaults.colors(
+                    focusedBorderColor = Color(0xFFFF6B9D),
+                    unfocusedBorderColor = Color(0xFFC44CE6).copy(alpha = 0.5f)
+                )
+            )
+
+            Spacer(Modifier.height(6.dp))
+            OutlinedTextField(
                 value = password,
                 onValueChange = { password = it },
                 label = { Text("Password") },
@@ -345,25 +413,7 @@ fun SignUpForm(onSwitchToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
                         )
                     }
                 },
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(Modifier.height(6.dp))
-            OutlinedTextField(
-                value = confirmPassword,
-                onValueChange = { confirmPassword = it },
-                label = { Text("Confirm Password", maxLines = 1) },
-                leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null) },
-                singleLine = true,
-                visualTransformation = if (showConfirmPassword) VisualTransformation.None else PasswordVisualTransformation(),
-                trailingIcon = {
-                    IconButton(onClick = { showConfirmPassword = !showConfirmPassword }) {
-                        Icon(
-                            imageVector = if (showConfirmPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                            contentDescription = null
-                        )
-                    }
-                },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
                 modifier = Modifier.fillMaxWidth()
             )
 
@@ -385,14 +435,19 @@ fun SignUpForm(onSwitchToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
             ) {
                 Button(
                     onClick = {
-                        if (email.isBlank() || password.isBlank()) {
-                            error = "Please fill in all fields"
+                        if (username.isBlank() || password.isBlank() || email.isBlank() || phone.isBlank()) {
+                            localError = "Please fill in all fields"
                         } else {
-                            error = ""
-                            // For UI development - simulate successful signup
-                            onSignupSuccess()
+                            localError = ""
+                            authViewModel.register(RegisterRequest(
+                                username = username,
+                                email = email,
+                                password = password,
+                                phoneNumber = phone
+                            ))
                         }
                     },
+                    enabled = !isLoading,
                     modifier = Modifier
                         .fillMaxSize(),
                     colors = ButtonDefaults.buttonColors(
@@ -401,12 +456,16 @@ fun SignUpForm(onSwitchToLogin: () -> Unit, onSignupSuccess: () -> Unit) {
                     shape = RoundedCornerShape(12.dp),
                     contentPadding = PaddingValues()
                 ) {
-                    Text(
-                        text = "Create Account",
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    if (isLoading) {
+                        CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp))
+                    } else {
+                        Text(
+                            text = "Create Account",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
                 }
             }
 

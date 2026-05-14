@@ -1,6 +1,7 @@
 package com.example.womensafetyapp.network
 
 import com.example.womensafetyapp.data.EmergencyContact
+import com.example.womensafetyapp.data.AuthResponse
 import retrofit2.Response
 import retrofit2.http.*
 
@@ -34,6 +35,13 @@ interface ApiService {
         @Header("Authorization") token: String? = null
     ): Response<Unit>
     
+    // Auth endpoints
+    @POST("auth/login")
+    suspend fun login(@Body request: com.example.womensafetyapp.data.LoginRequest): Response<AuthResponse>
+
+    @POST("auth/register")
+    suspend fun register(@Body request: com.example.womensafetyapp.data.RegisterRequest): Response<AuthResponse>
+
     // Get contact by ID
     @GET("contacts/{id}")
     suspend fun getContactById(

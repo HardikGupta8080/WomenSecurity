@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
             WomenSafetyAppTheme {
                 // Create the ViewModel using Hilt
                 val contactsViewModel: ContactsViewModel = hiltViewModel()
-
+//hi my name is hardik gupta
                 Scaffold(
                     modifier = Modifier.fillMaxSize()
                 ) { innerPadding ->

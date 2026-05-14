@@ -2,6 +2,7 @@ package com.example.womensafetyapp.main
 
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,19 +18,28 @@ import androidx.compose.material.Text
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.womensafetyapp.R
+import com.example.womensafetyapp.data.TokenManager
+import com.example.womensafetyapp.util.logoutAndReturnToAuth
 
 @Preview(showBackground = true)
 @Composable
 fun TopHeader() {
+    val context = LocalContext.current
+    val tokenManager = remember(context) { TokenManager(context) }
+    val userProfile = remember { tokenManager.getUserProfile() }
+    val displayName = userProfile.username.ifBlank { "User" }
+
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -48,7 +58,7 @@ fun TopHeader() {
             Spacer(modifier = Modifier.width(8.dp))
             Column {
                 Text("SafeGuard", fontWeight = FontWeight.Bold)
-                Text("Welcome, Sarah", fontSize = 12.sp, color = Color.Gray)
+                Text("Welcome, $displayName", fontSize = 12.sp, color = Color.Gray)
             }
         }
 
@@ -61,7 +71,13 @@ fun TopHeader() {
                 Text("Online", color = Color.White, fontSize = 12.sp)
             }
             Spacer(modifier = Modifier.width(8.dp))
-            Icon(Icons.Default.ExitToApp, contentDescription = "Logout")
+            Icon(
+                Icons.Default.ExitToApp,
+                contentDescription = "Logout",
+                modifier = Modifier.clickable {
+                    logoutAndReturnToAuth(context, tokenManager)
+                }
+            )
         }
     }
 }

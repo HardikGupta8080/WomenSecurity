@@ -11,7 +11,7 @@ import java.util.concurrent.TimeUnit
 object NetworkClient {
     
     // TODO: Replace with your actual API base URL
-    private const val BASE_URL = "https://your-api-base-url.com/api/v1/"
+    private const val BASE_URL = "https://womensecurity-1.onrender.com/"
     
     private val gson: Gson by lazy {
         GsonBuilder()

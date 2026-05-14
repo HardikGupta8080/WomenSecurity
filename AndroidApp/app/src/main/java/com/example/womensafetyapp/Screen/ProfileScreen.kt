@@ -20,14 +20,22 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.womensafetyapp.data.TokenManager
+import com.example.womensafetyapp.data.UserProfile
+import com.example.womensafetyapp.util.logoutAndReturnToAuth
 
 @Preview(showBackground = true)
 @Composable
 fun ProfileScreen() {
+    val context = LocalContext.current
+    val tokenManager = remember(context) { TokenManager(context) }
+    val userProfile = remember { tokenManager.getUserProfile() }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -40,7 +48,7 @@ fun ProfileScreen() {
         ProfileHeader()
         
         // User Profile Card
-        UserProfileCard()
+        UserProfileCard(userProfile = userProfile)
         
         // Primary Emergency Contact
         PrimaryEmergencyContactCard()
@@ -49,7 +57,11 @@ fun ProfileScreen() {
         SettingsSection()
         
         // Sign Out Button
-        SignOutButton()
+        SignOutButton(
+            onSignOut = {
+                logoutAndReturnToAuth(context, tokenManager)
+            }
+        )
         
         // Bottom spacing
         Spacer(modifier = Modifier.height(32.dp))
@@ -77,7 +89,11 @@ fun ProfileHeader() {
 }
 
 @Composable
-fun UserProfileCard() {
+fun UserProfileCard(userProfile: UserProfile) {
+    val username = userProfile.username.ifBlank { "User" }
+    val email = userProfile.email.ifBlank { "Not available" }
+    val phoneNumber = userProfile.phoneNumber.ifBlank { "Not available" }
+
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
@@ -108,26 +124,38 @@ fun UserProfileCard() {
             
             // User Information
             Column(
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.weight(1f)
             ) {
                 Text(
-                    text = "Sarah Johnson",
+                    text = username,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.SemiBold,
                     color = Color.Black
                 )
-                Text(
-                    text = "sarah@example.com",
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
-                Text(
-                    text = "+1 (555) 123-4567",
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
+                ProfileDetail(label = "Username", value = username)
+                ProfileDetail(label = "Email", value = email)
+                ProfileDetail(label = "Phone", value = phoneNumber)
             }
         }
+    }
+}
+
+@Composable
+fun ProfileDetail(label: String, value: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        Text(
+            text = label,
+            fontSize = 12.sp,
+            color = Color.Gray,
+            fontWeight = FontWeight.Medium
+        )
+        Text(
+            text = value,
+            fontSize = 14.sp,
+            color = Color(0xFF333333),
+            lineHeight = 18.sp
+        )
     }
 }
 
@@ -246,13 +274,11 @@ fun SettingsItem(
 }
 
 @Composable
-fun SignOutButton() {
+fun SignOutButton(onSignOut: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable { 
-                // TODO: Implement sign out functionality
-            },
+            .clickable { onSignOut() },
         shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
