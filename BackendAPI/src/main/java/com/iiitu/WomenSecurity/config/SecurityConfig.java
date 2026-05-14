@@ -28,6 +28,7 @@ public class SecurityConfig {
                 .cors(cors -> {})   // 🔥 enable CORS
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/","/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/emergency", "/emergency/location", "/api/emergency", "/api/emergency/location").permitAll()
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // 🔥 allow preflight
                         .anyRequest().authenticated()
                 )

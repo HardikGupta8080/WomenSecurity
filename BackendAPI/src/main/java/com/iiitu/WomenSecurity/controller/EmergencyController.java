@@ -9,8 +9,10 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import jakarta.validation.Valid;
 
+import java.util.Map;
+
 @RestController
-@RequestMapping("/api/emergency")
+@RequestMapping({"/api/emergency", "/emergency"})
 public class EmergencyController {
 
     private final EmergencyService emergencyService;
@@ -20,16 +22,37 @@ public class EmergencyController {
     }
 
     @PostMapping({"", "/location"})
-    public ResponseEntity<EmergencyLocation> sendLocation(@Valid @RequestBody EmergencyLocationDTO locationDto,
+    public ResponseEntity<?> sendLocation(@Valid @RequestBody EmergencyLocationDTO locationDto,
                                Authentication authentication){
 
-        String userEmail = authentication.getName(); // from JWT
+        Double latitude = locationDto.getLatitude();
+        Double longitude = locationDto.getLongitude();
+
+        if (locationDto.getCoordinates() != null) {
+            if (latitude == null) latitude = locationDto.getCoordinates().getLat();
+            if (longitude == null) longitude = locationDto.getCoordinates().getLng();
+        }
+
+        if (latitude == null || longitude == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "error", "Latitude and longitude are required. Send either latitude/longitude or coordinates.lat/coordinates.lng."
+            ));
+        }
+
+        String userId = authentication != null && authentication.isAuthenticated()
+                ? authentication.getName()
+                : firstPresent(
+                        locationDto.getEmail(),
+                        locationDto.getReporterPhone(),
+                        locationDto.getReporterName(),
+                        "anonymous"
+                );
 
         EmergencyLocation location = new EmergencyLocation(
-                userEmail,
+                userId,
                 locationDto.getStatus(),
-                locationDto.getLatitude(),
-                locationDto.getLongitude(),
+                latitude,
+                longitude,
                 locationDto.getNote(),
                 locationDto.getType(),
                 locationDto.getPhoneNumber(),
@@ -51,5 +74,14 @@ public class EmergencyController {
 
         EmergencyLocation savedLocation = emergencyService.saveLocation(location);
         return new ResponseEntity<>(savedLocation, HttpStatus.CREATED);
+    }
+
+    private String firstPresent(String... values) {
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value;
+            }
+        }
+        return "anonymous";
     }
 }

@@ -1,8 +1,6 @@
 package com.iiitu.WomenSecurity.dto;
 
 import com.iiitu.WomenSecurity.model.Coordinates;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import java.util.List;
 
 public class EmergencyLocationDTO {
@@ -10,10 +8,8 @@ public class EmergencyLocationDTO {
     private String status;
     private String priority;
 
-    @NotNull(message = "Latitude is required")
     private Double latitude;
 
-    @NotNull(message = "Longitude is required")
     private Double longitude;
 
     private Coordinates coordinates;
